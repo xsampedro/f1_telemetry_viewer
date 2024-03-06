@@ -4,6 +4,7 @@ import 'package:f1_telemetry_viewer/services/meeting.dart';
 import 'package:f1_telemetry_viewer/services/session.dart';
 import 'package:f1_telemetry_viewer/views/drivers_screen.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class MeetingsScreen extends StatefulWidget {
   const MeetingsScreen({super.key});
@@ -37,6 +38,15 @@ class _MeetingsScreenState extends State<MeetingsScreen> {
         }
       }
     });
+  }
+
+  Future<void> _launchURL() async {
+    const url = 'https://github.com/xsampedro/f1_telemetry_viewer';
+    if (await canLaunch(url)) {
+      await launch(url);
+    } else {
+      throw 'Could not launch $url';
+    }
   }
 
   Widget buildMeetingTile(Meeting meeting) {
@@ -98,6 +108,14 @@ class _MeetingsScreenState extends State<MeetingsScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Select a Meeting and Session'),
+        actions: <Widget>[
+          IconButton(
+            icon: const Icon(Icons.bug_report_sharp, color: Colors.indigo,),
+            padding: const EdgeInsets.only(right: 60.0),
+            onPressed: _launchURL,
+            tooltip: 'View Source Code',
+          ),
+        ],
       ),
       body: FutureBuilder<List<Meeting>>(
         future: meetingsFuture,

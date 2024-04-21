@@ -6,6 +6,7 @@ import 'package:f1_telemetry_viewer/services/api_service.dart';
 import 'package:f1_telemetry_viewer/services/car_data.dart';
 import 'package:f1_telemetry_viewer/services/session.dart';
 import 'package:f1_telemetry_viewer/services/driver.dart';
+import 'package:dropdown_button2/dropdown_button2.dart';
 
 
 class TelemetryScreen extends StatefulWidget {
@@ -31,10 +32,12 @@ class _TelemetryScreenState extends State<TelemetryScreen> {
   List<DateTimeAxisController> axisControllers =
       []; // Reintegrated for synchronized chart control
   String loadingDriver = "";
+  List<String> selectedTelemetryDataTypes = [];
 
   @override
   void initState() {
     super.initState();
+    selectedTelemetryDataTypes = ['Speed', 'RPM'];
     initialLoadFuture = fetchInitialCarDataForDrivers();
   }
 
@@ -77,7 +80,18 @@ class _TelemetryScreenState extends State<TelemetryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    axisControllers.clear(); // Clear existing controllers
+    //axisControllers.clear(); // Clear existing controllers
+
+    // List of telemetry data types
+    final List<String> telemetryDataTypes = [
+      'Speed',
+      'RPM',
+      'Gear',
+      'Throttle',
+      'Brake',
+      'DRS',
+    ];
+
 
     return Scaffold(
       appBar: AppBar(
@@ -98,58 +112,129 @@ class _TelemetryScreenState extends State<TelemetryScreen> {
           } else if (snapshot.hasError) {
             return Center(child: Text('Error: ${snapshot.error}'));
           } else {
-            return SingleChildScrollView(
-              child: Column(
-                children: [
-                  TelemetryChart(
-                    dataByDriver: allData,
-                    title: 'Speed',
-                    valueExtractor: (CarData data) => data.speed,
-                    session: widget.session,
-                    selectedDrivers: widget.selectedDrivers,
-                    axisControllers: axisControllers,
+            return Column(
+              children: [
+                // Dropdown menu for selecting telemetry data types
+                DropdownButtonHideUnderline(
+                  child: DropdownButton2<String>(
+                    isExpanded: true,
+                    hint: Text(
+                      'Select Telemetry Data Types',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Theme.of(context).hintColor,
+                      ),
+                    ),
+                    items: telemetryDataTypes.map((item) {
+                      return DropdownMenuItem(
+                        value: item,
+                        //disable default onTap to avoid closing menu when selecting an item
+                        enabled: false,
+                        child: StatefulBuilder(
+                          builder: (context, menuSetState) {
+                            final isSelected = selectedTelemetryDataTypes.contains(item);
+                            return InkWell(
+                              onTap: () {
+                                setState(() {
+                                  isSelected
+                                      ? selectedTelemetryDataTypes.remove(item)
+                                      : selectedTelemetryDataTypes.add(item);
+                                });
+                                //This rebuilds the dropdownMenu Widget to update the check mark
+                                menuSetState(() {});
+                              },
+                              child: Container(
+                                height: double.infinity,
+                                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                                child: Row(
+                                  children: [
+                                    if (isSelected)
+                                      const Icon(Icons.check_box_outlined)
+                                    else
+                                      const Icon(Icons.check_box_outline_blank),
+                                    const SizedBox(width: 16),
+                                    Expanded(
+                                      child: Text(
+                                        item,
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      );
+                    }).toList(),
+                    //Use last selected item as the current value so if we've limited menu height, it scroll to last item.
+                    value: selectedTelemetryDataTypes.isEmpty ? null : selectedTelemetryDataTypes.last,
+                    onChanged: (value) {},
+                    selectedItemBuilder: (context) {
+                      return telemetryDataTypes.map(
+                            (item) {
+                          return Container(
+                            alignment: AlignmentDirectional.center,
+                            child: Text(
+                              selectedTelemetryDataTypes.join(', '),
+                              style: const TextStyle(
+                                fontSize: 14,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              maxLines: 1,
+                            ),
+                          );
+                        },
+                      ).toList();
+                    },
+                    buttonStyleData: const ButtonStyleData(
+                      padding: EdgeInsets.only(left: 16, right: 8),
+                      height: 40,
+                      width: 140,
+                    ),
+                    menuItemStyleData: const MenuItemStyleData(
+                      height: 40,
+                      padding: EdgeInsets.zero,
+                    ),
                   ),
-                  TelemetryChart(
-                    dataByDriver: allData,
-                    title: 'RPM',
-                    valueExtractor: (CarData data) => data.rpm,
-                    session: widget.session,
-                    selectedDrivers: widget.selectedDrivers,
-                    axisControllers: axisControllers,
+                ),
+                // Display the selected telemetry charts
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      children: selectedTelemetryDataTypes.map((selectedTelemetryDataType) {
+                        return TelemetryChart(
+                          dataByDriver: allData,
+                          title: selectedTelemetryDataType,
+                          valueExtractor: (CarData data) {
+                            switch (selectedTelemetryDataType) {
+                              case 'Speed':
+                                return data.speed;
+                              case 'RPM':
+                                return data.rpm;
+                              case 'Gear':
+                                return data.nGear;
+                              case 'Throttle':
+                                return data.throttle;
+                              case 'Brake':
+                                return data.brake;
+                              case 'DRS':
+                                return data.drs;
+                              default:
+                                return data.speed;
+                            }
+                          },
+                          session: widget.session,
+                          selectedDrivers: widget.selectedDrivers,
+                          axisControllers: axisControllers,
+                        );
+                      }).toList(),
+                    ),
                   ),
-                  TelemetryChart(
-                    dataByDriver: allData,
-                    title: 'Gear',
-                    valueExtractor: (CarData data) => data.nGear,
-                    session: widget.session,
-                    selectedDrivers: widget.selectedDrivers,
-                    axisControllers: axisControllers,
-                  ),
-                  TelemetryChart(
-                    dataByDriver: allData,
-                    title: 'Throttle',
-                    valueExtractor: (CarData data) => data.throttle,
-                    session: widget.session,
-                    selectedDrivers: widget.selectedDrivers,
-                    axisControllers: axisControllers,
-                  ),
-                  TelemetryChart(
-                    dataByDriver: allData,
-                    title: 'Brake',
-                    valueExtractor: (CarData data) => data.brake,
-                    session: widget.session,
-                    selectedDrivers: widget.selectedDrivers,
-                    axisControllers: axisControllers,
-                  ),
-                  TelemetryChart(
-                    dataByDriver: allData,
-                    title: 'DRS',
-                    valueExtractor: (CarData data) => data.drs,
-                    session: widget.session,
-                    selectedDrivers: widget.selectedDrivers,
-                    axisControllers: axisControllers,
-                  ),                ],
-              ),
+                ),
+              ],
             );
           }
         },

@@ -1,3 +1,4 @@
+import 'package:f1_telemetry_viewer/views/widgets/telemetry_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
 import 'package:f1_telemetry_viewer/services/meeting.dart';
@@ -5,7 +6,7 @@ import 'package:f1_telemetry_viewer/services/api_service.dart';
 import 'package:f1_telemetry_viewer/services/car_data.dart';
 import 'package:f1_telemetry_viewer/services/session.dart';
 import 'package:f1_telemetry_viewer/services/driver.dart';
-import 'dart:math';
+
 
 class TelemetryScreen extends StatefulWidget {
   final Meeting meeting;
@@ -29,6 +30,7 @@ class _TelemetryScreenState extends State<TelemetryScreen> {
   static const int chunkSizeInMinutes = 10;
   List<DateTimeAxisController> axisControllers =
       []; // Reintegrated for synchronized chart control
+  String loadingDriver = "";
 
   @override
   void initState() {
@@ -56,6 +58,9 @@ class _TelemetryScreenState extends State<TelemetryScreen> {
           : sessionEnd;
 
       for (var driver in widget.selectedDrivers) {
+        setState(() {
+          loadingDriver = driver.fullName;
+        });
         List<CarData> newData = await ApiService().getCarData(
           sessionKey: widget.session.sessionKey,
           driverNumber: driver.driverNumber,
@@ -87,7 +92,7 @@ class _TelemetryScreenState extends State<TelemetryScreen> {
             return Column(
               children: [
                 LinearProgressIndicator(value: progress),
-                const Expanded(child: Center(child: Text('Loading data...'))),
+                Expanded(child: Center(child: Text('Loading data for $loadingDriver...'))),
               ],
             );
           } else if (snapshot.hasError) {
@@ -96,82 +101,59 @@ class _TelemetryScreenState extends State<TelemetryScreen> {
             return SingleChildScrollView(
               child: Column(
                 children: [
-                  buildChart(allData, 'Speed', (CarData data) => data.speed),
-                  buildChart(allData, 'RPM', (CarData data) => data.rpm),
-                  buildChart(allData, 'Gear', (CarData data) => data.nGear),
-                  buildChart(
-                      allData, 'Throttle', (CarData data) => data.throttle),
-                  buildChart(allData, 'Brake', (CarData data) => data.brake),
-                  buildChart(allData, 'DRS', (CarData data) => data.drs),
-                ],
+                  TelemetryChart(
+                    dataByDriver: allData,
+                    title: 'Speed',
+                    valueExtractor: (CarData data) => data.speed,
+                    session: widget.session,
+                    selectedDrivers: widget.selectedDrivers,
+                    axisControllers: axisControllers,
+                  ),
+                  TelemetryChart(
+                    dataByDriver: allData,
+                    title: 'RPM',
+                    valueExtractor: (CarData data) => data.rpm,
+                    session: widget.session,
+                    selectedDrivers: widget.selectedDrivers,
+                    axisControllers: axisControllers,
+                  ),
+                  TelemetryChart(
+                    dataByDriver: allData,
+                    title: 'Gear',
+                    valueExtractor: (CarData data) => data.nGear,
+                    session: widget.session,
+                    selectedDrivers: widget.selectedDrivers,
+                    axisControllers: axisControllers,
+                  ),
+                  TelemetryChart(
+                    dataByDriver: allData,
+                    title: 'Throttle',
+                    valueExtractor: (CarData data) => data.throttle,
+                    session: widget.session,
+                    selectedDrivers: widget.selectedDrivers,
+                    axisControllers: axisControllers,
+                  ),
+                  TelemetryChart(
+                    dataByDriver: allData,
+                    title: 'Brake',
+                    valueExtractor: (CarData data) => data.brake,
+                    session: widget.session,
+                    selectedDrivers: widget.selectedDrivers,
+                    axisControllers: axisControllers,
+                  ),
+                  TelemetryChart(
+                    dataByDriver: allData,
+                    title: 'DRS',
+                    valueExtractor: (CarData data) => data.drs,
+                    session: widget.session,
+                    selectedDrivers: widget.selectedDrivers,
+                    axisControllers: axisControllers,
+                  ),                ],
               ),
             );
           }
         },
       ),
-    );
-  }
-
-  SfCartesianChart buildChart(Map<int, List<CarData>> dataByDriver,
-      String title, num Function(CarData) valueExtractor) {
-    List<LineSeries<CarData, DateTime>> seriesList =
-    dataByDriver.entries.map((entry) {
-      var driver = widget.selectedDrivers
-          .firstWhere((driver) => driver.driverNumber == entry.key);
-      int? colorValue = int.tryParse('0xFF${driver.teamColour}');
-      Color parsedColor = colorValue != null ? Color(colorValue) : Colors.grey;
-      return LineSeries<CarData, DateTime>(
-        dataSource: entry.value,
-        name: driver.nameAcronym,
-        color: parsedColor,
-        xValueMapper: (CarData data, _) => data.date,
-        yValueMapper: (CarData data, _) => valueExtractor(data),
-      );
-    }).toList();
-
-    // Calculate the absolute maximum and minimum values
-    double maxValue = seriesList
-        .map((series) => series.dataSource!.map(valueExtractor).reduce(max))
-        .reduce(max)
-        .toDouble();
-    double minValue = seriesList
-        .map((series) => series.dataSource!.map(valueExtractor).reduce(min))
-        .reduce(min)
-        .toDouble();
-
-    return SfCartesianChart(
-      title: ChartTitle(text: title),
-      legend: const Legend(
-          isVisible: true, overflowMode: LegendItemOverflowMode.wrap),
-      primaryXAxis: DateTimeAxis(
-        initialVisibleMinimum: widget.session.dateStart,
-        initialVisibleMaximum:
-        widget.session.dateStart.add(const Duration(minutes: 1)),
-        minimum: widget.session.dateStart,
-        maximum: widget.session.dateEnd,
-        onRendererCreated: (args) {
-          axisControllers.add(args);
-        },
-      ),
-      primaryYAxis: NumericAxis(minimum: minValue, maximum: maxValue), // Set the min and max values here
-      onZooming: (args) {
-        if (args.axis!.name == 'primaryXAxis') {
-          for (var controller in axisControllers) {
-            if (controller.zoomPosition != args.currentZoomPosition) {
-              controller.zoomPosition = args.currentZoomPosition;
-            }
-            if (controller.zoomFactor != args.currentZoomFactor) {
-              controller.zoomFactor = args.currentZoomFactor;
-            }
-          }
-        }
-      },
-      zoomPanBehavior: ZoomPanBehavior(
-        enablePinching: true,
-        enablePanning: true,
-        zoomMode: ZoomMode.x,
-      ),
-      series: seriesList,
     );
   }
 }

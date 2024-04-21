@@ -5,6 +5,7 @@ import 'package:f1_telemetry_viewer/services/api_service.dart';
 import 'package:f1_telemetry_viewer/services/car_data.dart';
 import 'package:f1_telemetry_viewer/services/session.dart';
 import 'package:f1_telemetry_viewer/services/driver.dart';
+import 'dart:math';
 
 class TelemetryScreen extends StatefulWidget {
   final Meeting meeting;
@@ -114,7 +115,7 @@ class _TelemetryScreenState extends State<TelemetryScreen> {
   SfCartesianChart buildChart(Map<int, List<CarData>> dataByDriver,
       String title, num Function(CarData) valueExtractor) {
     List<LineSeries<CarData, DateTime>> seriesList =
-        dataByDriver.entries.map((entry) {
+    dataByDriver.entries.map((entry) {
       var driver = widget.selectedDrivers
           .firstWhere((driver) => driver.driverNumber == entry.key);
       int? colorValue = int.tryParse('0xFF${driver.teamColour}');
@@ -128,6 +129,16 @@ class _TelemetryScreenState extends State<TelemetryScreen> {
       );
     }).toList();
 
+    // Calculate the absolute maximum and minimum values
+    double maxValue = seriesList
+        .map((series) => series.dataSource!.map(valueExtractor).reduce(max))
+        .reduce(max)
+        .toDouble();
+    double minValue = seriesList
+        .map((series) => series.dataSource!.map(valueExtractor).reduce(min))
+        .reduce(min)
+        .toDouble();
+
     return SfCartesianChart(
       title: ChartTitle(text: title),
       legend: const Legend(
@@ -135,13 +146,14 @@ class _TelemetryScreenState extends State<TelemetryScreen> {
       primaryXAxis: DateTimeAxis(
         initialVisibleMinimum: widget.session.dateStart,
         initialVisibleMaximum:
-            widget.session.dateStart.add(const Duration(minutes: 1)),
+        widget.session.dateStart.add(const Duration(minutes: 1)),
         minimum: widget.session.dateStart,
         maximum: widget.session.dateEnd,
         onRendererCreated: (args) {
           axisControllers.add(args);
         },
       ),
+      primaryYAxis: NumericAxis(minimum: minValue, maximum: maxValue), // Set the min and max values here
       onZooming: (args) {
         if (args.axis!.name == 'primaryXAxis') {
           for (var controller in axisControllers) {

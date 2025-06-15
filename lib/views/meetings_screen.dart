@@ -7,7 +7,10 @@ import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class MeetingsScreen extends StatefulWidget {
-  const MeetingsScreen({super.key});
+  final VoidCallback toggleTheme;
+  final ThemeMode themeMode;
+
+  const MeetingsScreen({super.key, required this.toggleTheme, required this.themeMode});
 
   @override
   State<MeetingsScreen> createState() => _MeetingsScreenState();
@@ -109,6 +112,13 @@ class _MeetingsScreenState extends State<MeetingsScreen> {
       appBar: AppBar(
         title: const Text('Select a Meeting and Session'),
         actions: <Widget>[
+          IconButton(
+            icon: Icon(widget.themeMode == ThemeMode.dark
+                ? Icons.light_mode
+                : Icons.dark_mode),
+            onPressed: widget.toggleTheme,
+            tooltip: 'Toggle Theme',
+          ),
           IconButton(
             icon: const Icon(Icons.bug_report_sharp, color: Colors.indigo,),
             padding: const EdgeInsets.only(right: 60.0),
